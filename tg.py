@@ -4,13 +4,6 @@ import string
 from time import sleep
 
 
-def generate_random_phone():
-    country_codes = ['+1', '+7', '+44', '+49', '+33']
-    code = random.choice(country_codes)
-    number = ''.join(random.choices('0123456789', k=10))
-    return f"{code}{number}"
-
-
 def generate_random_email():
     username_length = random.randint(6, 12)
     username = ''.join(random.choices(string.ascii_lowercase + string.digits, k=username_length))
@@ -35,22 +28,21 @@ def get_random_headers():
     }
 
 
-def submit_web_form(target_phone: str, complaint_details: str):
+def submit_web_form(target_account: str, complaint_details: str):
     url = "https://telegram.org/support"
 
     fake_email = generate_random_email()
-    fake_phone = generate_random_phone()
 
     data = {
         'email': fake_email,
         'subject': 'Report abusive account',
         'question': f"""
-        Account to investigate: {target_phone}
+        Account to investigate: {target_account}
+        Type: {'Username' if target_account.startswith('@') else 'User ID'}
         Violation details: {complaint_details}
 
         This report was generated automatically.
         """,
-        'phone': fake_phone
     }
 
     try:
@@ -65,7 +57,7 @@ def submit_web_form(target_phone: str, complaint_details: str):
         )
 
         if response.status_code == 302:
-            print(f"✓ Жалоба отправлена (использованы данные: {fake_email}/{fake_phone})")
+            print(f"✓ Жалоба на {target_account} отправлена (анонимный email: {fake_email})")
             return True
         else:
             print(f"✗ Ошибка формы (код: {response.status_code})")
@@ -78,12 +70,12 @@ def submit_web_form(target_phone: str, complaint_details: str):
 def main():
     print("=== Анонимный телеграм репортер ===")
 
-    target_phone = input("Введите номер нарушителя (с кодом страны): ").strip()
+    target_account = input("Введите username (@example) или ID аккаунта: ").strip()
     complaint_details = input("Опишите нарушение: ").strip()
 
     try:
-        num_complaints = int(input("Введите количество жалоб для отправки (1-100): ").strip())
-        num_complaints = max(1, min(100, num_complaints))  # Ограничение от 1 до 10
+        num_complaints = int(input("Введите количество жалоб для отправки (1-1000): ").strip())
+        num_complaints = max(1, min(1000, num_complaints))
     except ValueError:
         print("Некорректный ввод, установлено значение по умолчанию (3)")
         num_complaints = 3
@@ -93,7 +85,7 @@ def main():
     success_count = 0
     for i in range(1, num_complaints + 1):
         print(f"Попытка отправки #{i}")
-        if submit_web_form(target_phone, complaint_details):
+        if submit_web_form(target_account, complaint_details):
             success_count += 1
         sleep(random.uniform(2, 5))
 
