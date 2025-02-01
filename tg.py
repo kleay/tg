@@ -1,96 +1,90 @@
-import requests
 import random
 import string
-from time import sleep
+import requests
+import certifi
+import fake_useragent
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+
+# Игнорируем предупреждения о незащищенных запросах
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 
 def generate_random_email():
-    username_length = random.randint(6, 12)
-    username = ''.join(random.choices(string.ascii_lowercase + string.digits, k=username_length))
-    return f"{username}@gmail.com"
+    domains = ["gmail.com", "hotmail.com","mail.ru"]
+    name = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
+    return f"{name}@{random.choice(domains)}"
 
 
-def get_random_headers():
+def generate_random_phone_number():
+    prefixes = ['+7', '+380','+1','+10','+4',]
+    number = ''.join(random.choices(string.digits, k=10))
+    return f"{random.choice(prefixes)}{number}"
+
+
+def generate_user_agent():
     user_agents = [
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15',
-        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36'
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.1 Safari/605.1.15",
     ]
-    return {
-        'User-Agent': random.choice(user_agents),
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Referer': 'https://telegram.org/',
-        'DNT': str(random.randint(0, 1)),
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1'
+    return random.choice(user_agents)
+
+
+def generate_complaint(nickname, violation_type):
+    violations = {
+        "SPAM": f"Пользователь {nickname} рассылает массовые рекламные сообщения и спам",
+        "SCAM": f"Обнаружена мошенническая деятельность пользователя {nickname}",
+        "ABUSE": f"Пользователь {nickname} нарушает правила сообщества грубым поведением",
+        "COPYRIGHT": f"Аккаунт {nickname} распространяет контент с нарушением авторских прав",
+        "DEFAULT": f"Пользователь {nickname} систематически нарушает правила платформы"
     }
 
-
-def submit_web_form(target_account: str, complaint_details: str):
-    url = "https://telegram.org/support"
-
-    fake_email = generate_random_email()
-
-    data = {
-        'email': fake_email,
-        'subject': 'Report abusive account',
-        'question': f"""
-        Account to investigate: {target_account}
-        Type: {'Username' if target_account.startswith('@') else 'User ID'}
-        Violation details: {complaint_details}
-
-        This report was generated automatically.
-        """,
-    }
-
-    try:
-        sleep(random.uniform(1, 3))
-
-        response = requests.post(
-            url,
-            data=data,
-            headers=get_random_headers(),
-            allow_redirects=False,
-            timeout=10
-        )
-
-        if response.status_code == 302:
-            print(f"✓ Жалоба на {target_account} отправлена (анонимный email: {fake_email})")
-            return True
-        else:
-            print(f"✗ Ошибка формы (код: {response.status_code})")
-            return False
-    except Exception as e:
-        print(f"✗ Ошибка при отправке: {str(e)}")
-        return False
+    return violations.get(violation_type.upper(),
+                          violations["DEFAULT"]) + ". Прошу принять меры и заблокировать данный аккаунт."
 
 
-def main():
-    print("=== Анонимный телеграм репортер ===")
+def send_reports(nickname, violation_type, num_requests=100):
+    message = generate_complaint(nickname, violation_type)
 
-    target_account = input("Введите username (@example) или ID аккаунта: ").strip()
-    complaint_details = input("Опишите нарушение: ").strip()
+    print("\nИспользуемое сообщение для жалоб:")
+    print("-" * 50)
+    print(message)
+    print("-" * 50 + "\n")
 
-    try:
-        num_complaints = int(input("Введите количество жалоб для отправки (1-1000): ").strip())
-        num_complaints = max(1, min(1000, num_complaints))
-    except ValueError:
-        print("Некорректный ввод, установлено значение по умолчанию (3)")
-        num_complaints = 3
+    url = "https://telegram.org/support?setln=ru"
+    subject = "Жалоба на пользователя"
 
-    print(f"\nНачата отправка {num_complaints} жалоб...\n")
+    print(f"Начинаем отправку {num_requests} жалоб...")
+    for i in range(num_requests):
+        try:
+            email = generate_random_email()
+            phone = generate_random_phone_number()
+            user_agent = generate_user_agent()
 
-    success_count = 0
-    for i in range(1, num_complaints + 1):
-        print(f"Попытка отправки #{i}")
-        if submit_web_form(target_account, complaint_details):
-            success_count += 1
-        sleep(random.uniform(2, 5))
+            payload = {
+                "subject": subject,
+                "message": message,
+                "email": email,
+                "phone": phone
+            }
 
-    print(f"\nРезультат: {success_count} из {num_complaints} жалоб успешно отправлены")
+            response = requests.post(url,
+                                     data=payload,
+                                     headers={"User-Agent": user_agent},
+                                     verify=certifi.where())
+
+            print(f"Жалоба #{i + 1}: Статус {response.status_code} | Email: {email} | Телефон: {phone}")
+
+        except Exception as e:
+            print(f"Ошибка при отправке запроса: {str(e)}")
+
+    print("\nВсе жалобы успешно отправлены!")
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    print("=== Telegram Account Reporter ===")
+    nickname = input("Введите никнейм нарушителя: ")
+    violation_type = input("Введите тип нарушения (SPAM/SCAM/ABUSE/COPYRIGHT): ")
+
+    send_reports(nickname, violation_type)
+
+    input("\nНажмите Enter для выхода...")
